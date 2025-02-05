@@ -1,154 +1,183 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
-import os
-import shutil
-from typing import List
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.document_loaders import TextLoader
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
+from functools import lru_cache
+import asyncio
+from typing import List, Dict
 
 app = FastAPI()
 load_dotenv()
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+   CORSMiddleware,
+   allow_origins=["*"],
+   allow_credentials=True,
+   allow_methods=["*"],
+   allow_headers=["*"],
 )
 
-
-# Configuration
-BOOKS_DIR = "documents"
-DB_DIR = "db"
-PERSISTENT_DIR = os.path.join(DB_DIR, "chroma_db_with_metadata")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-
-# Initialize directories
-os.makedirs(BOOKS_DIR, exist_ok=True)
-os.makedirs(DB_DIR, exist_ok=True)
+PINECONE_INDEX_NAME = "documents-index"
+BATCH_SIZE = 100
+MAX_RETRIES = 3
+RETRY_DELAY = 1
 
 class Query(BaseModel):
-    question: str
+   question: str
 
-def initialize_vectorstore():
-    if not os.path.exists(PERSISTENT_DIR):
-        book_files = [f for f in os.listdir(BOOKS_DIR) if f.endswith(".txt")]
-        
-        documents = []
-        for book_file in book_files:
-            file_path = os.path.join(BOOKS_DIR, book_file)
-            loader = TextLoader(file_path)
-            book_docs = loader.load()
-            for doc in book_docs:
-                doc.metadata = {"source": book_file}
-                documents.append(doc)
+@lru_cache(maxsize=1)
+def get_pinecone_client():
+   return Pinecone(
+       api_key=os.getenv("PINECONE_API_KEY"),
+       pool_threads=30
+   )
 
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-        docs = text_splitter.split_documents(documents)
-        
-        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-        db = Chroma.from_documents(docs, embeddings, persist_directory=PERSISTENT_DIR)
-        return db
-    return None
+@lru_cache(maxsize=1)
+def get_pinecone_index():
+   pc = get_pinecone_client()
+   if PINECONE_INDEX_NAME not in pc.list_indexes().names():
+       pc.create_index(
+           name=PINECONE_INDEX_NAME,
+           dimension=1536,
+           metric="cosine",
+           spec=ServerlessSpec(
+               cloud='aws',
+               region='us-east-1'
+           )
+       )
+   return pc.Index(PINECONE_INDEX_NAME)
+
+@lru_cache(maxsize=1)
+def get_embeddings():
+   return OpenAIEmbeddings()
+
+@lru_cache(maxsize=1)
+def get_chat_model():
+   return ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+
+async def process_batch(batch: List[Dict], embeddings: OpenAIEmbeddings, index, retry_count=0):
+   try:
+       texts = [doc["content"] for doc in batch]
+       embedding_vectors = embeddings.embed_documents(texts)
+       
+       vectors = [
+           {
+               "id": str(hash(doc["content"])),
+               "values": vector,
+               "metadata": {
+                   "text": doc["content"],
+                   **doc["metadata"]
+               }
+           }
+           for doc, vector in zip(batch, embedding_vectors)
+       ]
+       
+       index.upsert(vectors=vectors)
+   except Exception as e:
+       if retry_count < MAX_RETRIES:
+           await asyncio.sleep(RETRY_DELAY)
+           await process_batch(batch, embeddings, index, retry_count + 1)
+       else:
+           raise e
+
+async def process_document(content: bytes, filename: str):
+   try:
+       text = content.decode('utf-8')
+       text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+       texts = text_splitter.split_text(text)
+       documents = [{"content": chunk, "metadata": {"source": filename}} for chunk in texts]
+       
+       embeddings = get_embeddings()
+       index = get_pinecone_index()
+       
+       batches = [documents[i:i + BATCH_SIZE] for i in range(0, len(documents), BATCH_SIZE)]
+       tasks = [process_batch(batch, embeddings, index) for batch in batches]
+       
+       await asyncio.gather(*tasks)
+       
+   except Exception as e:
+       print(f"Error processing document: {str(e)}")
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    if not file.filename.endswith('.txt'):
-        raise HTTPException(400, "Only .txt files are supported")
-    
-    file_path = os.path.join(BOOKS_DIR, file.filename)
-
-    # Save the uploaded file to the documents directory
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # Load the existing vector store or create a new one
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-
-    if os.path.exists(PERSISTENT_DIR):
-        db = Chroma(persist_directory=PERSISTENT_DIR, embedding_function=embeddings)
-    else:
-        os.makedirs(DB_DIR, exist_ok=True)
-        db = Chroma(embedding_function=embeddings, persist_directory=PERSISTENT_DIR)
-
-    # Load and process the new document
-    loader = TextLoader(file_path)
-    new_docs = loader.load()
-
-    # Add metadata and split text
-    for doc in new_docs:
-        doc.metadata = {"source": file.filename}
-    
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    split_docs = text_splitter.split_documents(new_docs)
-
-    # Add new documents to Chroma DB
-    db.add_documents(split_docs)  # No need to call db.persist()
-
-    return {"message": "File uploaded and added to vector store successfully"}
-
-
+   if not file.filename.endswith('.txt'):
+       raise HTTPException(400, "Only .txt files are supported")
+   
+   try:
+       content = await file.read()
+       text = content.decode('utf-8')
+       text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+       texts = text_splitter.split_text(text)
+       documents = [{"content": chunk, "metadata": {"source": file.filename}} for chunk in texts]
+       
+       embeddings = get_embeddings()
+       index = get_pinecone_index()
+       
+       batches = [documents[i:i + BATCH_SIZE] for i in range(0, len(documents), BATCH_SIZE)]
+       tasks = [process_batch(batch, embeddings, index) for batch in batches]
+       
+       await asyncio.gather(*tasks)
+       
+       return {"message": "File processed successfully"}
+   except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+   
+   
+def get_vectorstore(embeddings):
+   index = get_pinecone_index()
+   return PineconeVectorStore(
+       index=index,
+       embedding=embeddings,
+       text_key="text"
+   )
 
 @app.post("/query")
 async def query_documents(query: Query):
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    db = Chroma(persist_directory=PERSISTENT_DIR, embedding_function=embeddings)
-    
-    retriever = db.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 3}
-    )
-    relevant_docs = retriever.invoke(query.question)
-    
-    combined_input = (
-        f"Question: {query.question}\n\n"
-        f"Relevant Documents:\n"
-        + "\n\n".join([doc.page_content for doc in relevant_docs])
-        + "\n\nPlease provide an answer based only on the provided documents. If the answer is not found in the documents, respond with 'I'm not sure'."
-    )
-    
-    model = ChatGroq(
-        model="llama-3.3-70b-versatile", 
-        api_key=os.getenv("GROQ_API_KEY")
-    )
-    
-    messages = [
-        SystemMessage(content="You are a helpful assistant."),
-        HumanMessage(content=combined_input)
-    ]
-    
-    result = model.invoke(messages)
-    
-    return {
-        "answer": result.content,
-        "sources": [{"content": doc.page_content, "source": doc.metadata.get("source")} 
-                   for doc in relevant_docs]
-    }
+   try:
+       embeddings = get_embeddings()
+       vectorstore = get_vectorstore(embeddings)
+       relevant_docs = vectorstore.similarity_search(query.question, k=2)
+       
+       combined_input = (
+           f"Question: {query.question}\n\n"
+           f"Relevant Documents:\n"
+           + "\n\n".join([doc.page_content for doc in relevant_docs])
+           + "\n\nPlease provide an answer based only on the provided documents. "
+           "If the answer is not found in the documents, respond with 'I'm not sure'."
+       )
+       
+       model = get_chat_model()
+       messages = [
+           SystemMessage(content="You are a helpful assistant."),
+           HumanMessage(content=combined_input)
+       ]
+       
+       result = model(messages)
+       
+       return {
+           "answer": result.content,
+           "sources": [{"content": doc.page_content, "source": doc.metadata.get("source")} 
+                      for doc in relevant_docs]
+       }
+   except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Error querying documents: {str(e)}")
 
 @app.delete("/delete-all")
-async def delete_all_files():
-    try:
-        # Delete all files in the documents directory
-        if os.path.exists(BOOKS_DIR):
-            shutil.rmtree(BOOKS_DIR)
-            os.makedirs(BOOKS_DIR, exist_ok=True)
-        
-        # Delete all files in the db directory
-        if os.path.exists(DB_DIR):
-            shutil.rmtree(DB_DIR)
-            os.makedirs(DB_DIR, exist_ok=True)
-        
-        return {"message": "All files in 'documents' and 'db' directories have been deleted."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting files: {str(e)}")
+async def delete_all():
+   try:
+       index = get_pinecone_index()
+       index.delete(delete_all=True)
+       return {"message": "All vectors deleted from Pinecone"}
+   except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+   import uvicorn
+   uvicorn.run(app, host="0.0.0.0", port=8000)
