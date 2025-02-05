@@ -1,427 +1,520 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAG System</title>
-    <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --success: #059669;
-            --danger: #dc2626;
-            --bg: #f8fafc;
-        }
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>RAG System</title>
+   <style>
+       :root {
+           --primary: #4f46e5;
+           --primary-dark: #4338ca;
+           --success: #059669;
+           --danger: #dc2626;
+           --bg: #f8fafc;
+       }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+       * {
+           margin: 0;
+           padding: 0;
+           box-sizing: border-box;
+       }
 
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: var(--bg);
-            color: #1f2937;
-            line-height: 1.5;
-        }
+       body {
+           font-family: 'Inter', system-ui, -apple-system, sans-serif;
+           background: var(--bg);
+           color: #1f2937;
+           line-height: 1.5;
+       }
 
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1.5rem;
-        }
+       .container {
+           max-width: 800px;
+           margin: 2rem auto;
+           padding: 0 1.5rem;
+       }
 
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-            padding: 2rem;
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
+       .header {
+           text-align: center;
+           margin-bottom: 3rem;
+           padding: 2rem;
+           background: white;
+           border-radius: 1rem;
+           box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+       }
 
-        .header h1 {
-            font-size: 2.5rem;
-            color: #111827;
-            margin-bottom: 0.5rem;
-        }
+       .header h1 {
+           font-size: 2.5rem;
+           color: #111827;
+           margin-bottom: 0.5rem;
+       }
 
-        .header p {
-            color: #6b7280;
-        }
+       .header p {
+           color: #6b7280;
+       }
 
-        .card {
-            background: white;
-            border-radius: 1rem;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            transition: transform 0.2s;
-        }
+       .card {
+           background: white;
+           border-radius: 1rem;
+           padding: 2rem;
+           margin-bottom: 1.5rem;
+           box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+           transition: transform 0.2s;
+       }
 
-        .card:hover {
-            transform: translateY(-2px);
-        }
+       .card:hover {
+           transform: translateY(-2px);
+       }
 
-        .card h2 {
-            color: #111827;
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
+       .card h2 {
+           color: #111827;
+           font-size: 1.25rem;
+           margin-bottom: 1.5rem;
+       }
 
-        .file-input-container {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
+       .file-input-container {
+           display: flex;
+           gap: 1rem;
+           align-items: center;
+       }
 
-        input[type="file"] {
-            flex: 1;
-            padding: 0.5rem;
-            border: 2px dashed #e5e7eb;
-            border-radius: 0.5rem;
-            cursor: pointer;
-        }
+       input[type="file"] {
+           flex: 1;
+           padding: 0.5rem;
+           border: 2px dashed #e5e7eb;
+           border-radius: 0.5rem;
+           cursor: pointer;
+       }
 
-        input[type="file"]:hover {
-            border-color: var(--primary);
-        }
+       input[type="file"]:hover {
+           border-color: var(--primary);
+       }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 0.5rem;
-            font-size: 1rem;
-            transition: border-color 0.2s;
-            margin-bottom: 1rem;
-        }
+       input[type="text"] {
+           width: 100%;
+           padding: 0.75rem 1rem;
+           border: 2px solid #e5e7eb;
+           border-radius: 0.5rem;
+           font-size: 1rem;
+           transition: border-color 0.2s;
+           margin-bottom: 1rem;
+       }
 
-        input[type="text"]:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
+       input[type="text"]:focus {
+           outline: none;
+           border-color: var(--primary);
+           box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+       }
 
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.5rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.875rem;
-        }
+       .btn {
+           padding: 0.75rem 1.5rem;
+           border: none;
+           border-radius: 0.5rem;
+           font-weight: 500;
+           cursor: pointer;
+           transition: all 0.2s;
+           font-size: 0.875rem;
+       }
 
-        .btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
+       .btn:disabled {
+           opacity: 0.7;
+           cursor: not-allowed;
+       }
 
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
+       .btn-primary {
+           background: var(--primary);
+           color: white;
+       }
 
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
+       .btn-primary:hover {
+           background: var(--primary-dark);
+       }
 
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
+       .btn-success {
+           background: var(--success);
+           color: white;
+       }
 
-        .btn-success:hover {
-            background: #047857;
-        }
+       .btn-success:hover {
+           background: #047857;
+       }
 
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
+       .btn-danger {
+           background: var(--danger);
+           color: white;
+       }
 
-        .btn-danger:hover {
-            background: #b91c1c;
-        }
+       .btn-danger:hover {
+           background: #b91c1c;
+       }
 
-        .output {
-            background: #f9fafb;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-top: 1rem;
-        }
+       .output {
+           background: #f9fafb;
+           border-radius: 0.5rem;
+           padding: 1.5rem;
+           margin-top: 1rem;
+       }
 
-        .output h3 {
-            color: #111827;
-            margin-bottom: 0.75rem;
-        }
+       .output h3 {
+           color: #111827;
+           margin-bottom: 0.75rem;
+       }
 
-        .output p {
-            color: #4b5563;
-            margin-bottom: 1rem;
-        }
+       .output p {
+           color: #4b5563;
+           margin-bottom: 1rem;
+           white-space: pre-wrap;
+       }
 
-        .output ul {
-            list-style-type: none;
-            padding-left: 0;
-        }
+       .output ul {
+           list-style-type: none;
+           padding-left: 0;
+       }
 
-                    .output li {
-            padding: 0.5rem;
-            border-left: 3px solid var(--primary);
-            background: white;
-            margin-bottom: 0.5rem;
-            border-radius: 0 0.25rem 0.25rem 0;
-            cursor: pointer;
-        }
+       .output li {
+           padding: 0.5rem;
+           border-left: 3px solid var(--primary);
+           background: white;
+           margin-bottom: 0.5rem;
+           border-radius: 0 0.25rem 0.25rem 0;
+           cursor: pointer;
+       }
 
-        .source-content {
-            display: none;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: #f3f4f6;
-            border-radius: 0.25rem;
-            font-size: 0.875rem;
-            color: #4b5563;
-        }
+       .source-content {
+           display: none;
+           margin-top: 0.5rem;
+           padding: 0.5rem;
+           background: #f3f4f6;
+           border-radius: 0.25rem;
+           font-size: 0.875rem;
+           color: #4b5563;
+       }
 
-        .notification {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            padding: 1rem 1.5rem;
-            border-radius: 0.5rem;
-            color: white;
-            animation: slideIn 0.3s ease-out;
-            z-index: 1000;
-        }
+       .notification {
+           position: fixed;
+           top: 1rem;
+           right: 1rem;
+           padding: 1rem 1.5rem;
+           border-radius: 0.5rem;
+           color: white;
+           animation: slideIn 0.3s ease-out;
+           z-index: 1000;
+       }
 
-        .notification.success {
-            background: var(--success);
-        }
+       .notification.success {
+           background: var(--success);
+       }
 
-        .notification.error {
-            background: var(--danger);
-        }
+       .notification.error {
+           background: var(--danger);
+       }
 
-        .upload-loader {
-            display: none;
-            width: 24px;
-            height: 24px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            margin-left: 10px;
-            animation: spin 1s linear infinite;
-        }
+       .upload-loader {
+           display: none;
+           width: 24px;
+           height: 24px;
+           border: 3px solid #f3f3f3;
+           border-top: 3px solid var(--primary);
+           border-radius: 50%;
+           margin-left: 10px;
+           animation: spin 1s linear infinite;
+       }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+       @keyframes spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+       }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
+       @keyframes slideIn {
+           from {
+               transform: translateX(100%);
+               opacity: 0;
+           }
+           to {
+               transform: translateX(0);
+               opacity: 1;
+           }
+       }
 
-        .loading {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-        }
+       .loading {
+           display: flex;
+           gap: 0.5rem;
+           justify-content: center;
+           align-items: center;
+           padding: 1rem;
+       }
 
-        .loading-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            background: var(--primary);
-            border-radius: 50%;
-            animation: bounce 0.5s infinite alternate;
-        }
+       .loading-dot {
+           width: 0.5rem;
+           height: 0.5rem;
+           background: var(--primary);
+           border-radius: 50%;
+           animation: bounce 0.5s infinite alternate;
+       }
 
-        .loading-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
+       .loading-dot:nth-child(2) {
+           animation-delay: 0.2s;
+       }
 
-        .loading-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
+       .loading-dot:nth-child(3) {
+           animation-delay: 0.4s;
+       }
 
-        @keyframes bounce {
-            to {
-                transform: translateY(-0.5rem);
-            }
-        }
-    </style>
+       @keyframes bounce {
+           to {
+               transform: translateY(-0.5rem);
+           }
+       }
+
+       .progress-container {
+           display: none;
+           margin-top: 1rem;
+           padding: 1rem;
+           background: #f3f4f6;
+           border-radius: 0.5rem;
+       }
+
+       .progress-bar {
+           height: 8px;
+           background: #e5e7eb;
+           border-radius: 4px;
+           overflow: hidden;
+       }
+
+       .progress-fill {
+           height: 100%;
+           width: 0%;
+           background: var(--primary);
+           transition: width 0.3s ease;
+       }
+
+       .progress-text {
+           margin-top: 0.5rem;
+           text-align: center;
+           color: #6b7280;
+           font-size: 0.875rem;
+       }
+
+       .question-section {
+           opacity: 0.5;
+           pointer-events: none;
+       }
+
+       .question-section.active {
+           opacity: 1;
+           pointer-events: auto;
+       }
+   </style>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>Document Q&A System</h1>
-            <p>Upload documents and get instant answers to your questions</p>
-        </header>
+   <div class="container">
+       <header class="header">
+           <h1>Document Q&A System</h1>
+           <p>Upload documents and get instant answers to your questions</p>
+       </header>
 
-        <div class="card">
-            <h2>Upload Document</h2>
-            <div class="file-input-container">
-                <input type="file" id="fileInput">
-                <button onclick="uploadFile()" id="uploadBtn" class="btn btn-primary">Upload</button>
-                <div id="uploadLoader" class="upload-loader"></div>
-            </div>
-        </div>
+       <div class="card">
+           <h2>Upload Document</h2>
+           <div class="file-input-container">
+               <input type="file" id="fileInput" accept=".txt">
+               <button onclick="uploadFile()" id="uploadBtn" class="btn btn-primary">Upload</button>
+               <div id="uploadLoader" class="upload-loader"></div>
+           </div>
+           <div id="progressContainer" class="progress-container">
+               <div class="progress-bar">
+                   <div id="progressFill" class="progress-fill"></div>
+               </div>
+               <div id="progressText" class="progress-text">Processing document...</div>
+           </div>
+       </div>
 
-        <div class="card">
-            <h2>Ask a Question</h2>
-            <input type="text" id="queryInput" placeholder="What would you like to know?">
-            <button onclick="askQuestion()" class="btn btn-success">Ask Question</button>
-        </div>
+       <div id="questionSection" class="card question-section">
+           <h2>Ask a Question</h2>
+           <input type="text" id="queryInput" placeholder="What would you like to know?">
+           <button onclick="askQuestion()" id="askBtn" class="btn btn-success">Ask Question</button>
+       </div>
 
-        <div id="outputContainer" class="card" style="display: none;">
-            <h2>Response</h2>
-            <div id="output"></div>
-        </div>
+       <div id="outputContainer" class="card" style="display: none;">
+           <h2>Response</h2>
+           <div id="output"></div>
+       </div>
 
-        <div style="text-align: center;">
-            <button onclick="deleteAll()" class="btn btn-danger">Delete All Data</button>
-        </div>
-    </div>
+       <div style="text-align: center;">
+           <button onclick="deleteAll()" class="btn btn-danger">Delete All Data</button>
+       </div>
+   </div>
 
-    <script>
-        const API_BASE = "http://127.0.0.1:8000";
+   <script>
+       const API_BASE = "http://127.0.0.1:8000";
+       let isFileUploaded = false;
 
-        async function uploadFile() {
-            const fileInput = document.getElementById("fileInput");
-            const uploadBtn = document.getElementById("uploadBtn");
-            const loader = document.getElementById("uploadLoader");
-            
-            const file = fileInput.files[0];
-            if (!file) {
-                showNotification('Please select a file first.', 'error');
-                return;
-            }
+       function enableQuestionSection() {
+           const questionSection = document.getElementById('questionSection');
+           questionSection.classList.add('active');
+       }
 
-            uploadBtn.disabled = true;
-            loader.style.display = "block";
+       function disableQuestionSection() {
+           const questionSection = document.getElementById('questionSection');
+           questionSection.classList.remove('active');
+       }
 
-            const formData = new FormData();
-            formData.append("file", file);
 
-            try {
-                const response = await fetch(`${API_BASE}/upload`, {
-                    method: "POST",
-                    body: formData
-                });
-                const result = await response.json();
-                showNotification(result.message, 'success');
-                fileInput.value = '';
-            } catch (error) {
-                showNotification('Error uploading file.', 'error');
-                console.error(error);
-            } finally {
-                uploadBtn.disabled = false;
-                loader.style.display = "none";
-            }
+    async function uploadFile() {
+        const fileInput = document.getElementById("fileInput");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const loader = document.getElementById("uploadLoader");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressFill = document.getElementById("progressFill");
+        const progressText = document.getElementById("progressText");
+        
+        const file = fileInput.files[0];
+        if (!file) {
+            showNotification('Please select a file first.', 'error');
+            return;
         }
 
-        async function askQuestion() {
-            const queryInput = document.getElementById("queryInput");
-            const query = queryInput.value.trim();
+        uploadBtn.disabled = true;
+        loader.style.display = "block";
+        progressContainer.style.display = "block";
+        progressFill.style.width = "0%";
+        progressText.textContent = "Uploading and processing...";
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const response = await fetch(`${API_BASE}/upload`, {
+                method: "POST",
+                body: formData
+            });
+            const result = await response.json();
             
-            if (!query) {
-                showNotification('Please enter a question.', 'error');
-                return;
+            if (response.status === 200) {
+                isFileUploaded = true;
+                enableQuestionSection();
+                progressFill.style.width = "100%";
+                progressText.textContent = "Processing complete!";
+                showNotification('Document processing complete!', 'success');
+                setTimeout(() => {
+                    progressContainer.style.display = "none";
+                }, 2000);
+            } else {
+                throw new Error(result.detail || 'Upload failed');
             }
-
-            const outputContainer = document.getElementById("outputContainer");
-            const output = document.getElementById("output");
-            outputContainer.style.display = "block";
-            output.innerHTML = `
-                <div class="loading">
-                    <div class="loading-dot"></div>
-                    <div class="loading-dot"></div>
-                    <div class="loading-dot"></div>
-                </div>
-            `;
-
-            try {
-                const response = await fetch(`${API_BASE}/query`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ question: query })
-                });
-                const result = await response.json();
-                
-                output.innerHTML = `
-                    <div class="output">
-                        <h3>Answer</h3>
-                        <p>${result.answer}</p>
-                        <h3>Sources</h3>
-                        <ul>
-                            ${result.sources.map(src => `
-                                <li onclick="toggleSource(this)">
-                                    ${src.source}
-                                    <div class="source-content">${src.content || 'Content not available'}</div>
-                                </li>`).join("")}
-                        </ul>
-                    </div>
-                `;
-                queryInput.value = '';
-            } catch (error) {
-                showNotification('Error fetching response.', 'error');
-                console.error(error);
-            }
-        }
-
-        async function deleteAll() {
-            if (!confirm("Are you sure you want to delete all data? This action cannot be undone.")) return;
             
-            try {
-                const response = await fetch(`${API_BASE}/delete-all`, { method: "DELETE" });
-                const result = await response.json();
-                showNotification(result.message, 'success');
-                document.getElementById("outputContainer").style.display = "none";
-                document.getElementById("output").innerHTML = "";
-            } catch (error) {
-                showNotification('Error deleting data.', 'error');
-                console.error(error);
-            }
+            fileInput.value = '';
+        } catch (error) {
+            isFileUploaded = false;
+            disableQuestionSection();
+            showNotification(error.message || 'Error uploading file.', 'error');
+            console.error(error);
+            progressText.textContent = "Upload failed!";
+        } finally {
+            uploadBtn.disabled = false;
+            loader.style.display = "none";
         }
+    }
 
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transform = 'translateX(100%)';
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
-        }
 
-        document.getElementById("queryInput").addEventListener("keypress", function(event) {
+       async function askQuestion() {
+           if (!isFileUploaded) {
+               showNotification('Please upload a document first.', 'error');
+               return;
+           }
+
+           const queryInput = document.getElementById("queryInput");
+           const query = queryInput.value.trim();
+           
+           if (!query) {
+               showNotification('Please enter a question.', 'error');
+               return;
+           }
+
+           const outputContainer = document.getElementById("outputContainer");
+           const output = document.getElementById("output");
+           outputContainer.style.display = "block";
+           output.innerHTML = `
+               <div class="loading">
+                   <div class="loading-dot"></div>
+                   <div class="loading-dot"></div>
+                   <div class="loading-dot"></div>
+               </div>
+           `;
+
+           try {
+               const response = await fetch(`${API_BASE}/query`, {
+                   method: "POST",
+                   headers: { "Content-Type": "application/json" },
+                   body: JSON.stringify({ question: query })
+               });
+               const result = await response.json();
+               
+               output.innerHTML = `
+                   <div class="output">
+                       <h3>Answer</h3>
+                       <p>${result.answer}</p>
+                       <h3>Sources</h3>
+                       <ul>
+                           ${result.sources.map(src => `
+                               <li onclick="toggleSource(this)">
+                                   ${src.source}
+                                   <div class="source-content">${src.content || 'Content not available'}</div>
+                               </li>`).join("")}
+                       </ul>
+                   </div>
+               `;
+               queryInput.value = '';
+           } catch (error) {
+               showNotification('Error fetching response.', 'error');
+               console.error(error);
+               output.innerHTML = '<div class="output"><p>Error fetching response.</p></div>';
+           }
+       }
+
+       async function deleteAll() {
+           if (!confirm("Are you sure you want to delete all data? This action cannot be undone.")) return;
+           
+           try {
+               const response = await fetch(`${API_BASE}/delete-all`, { method: "DELETE" });
+               const result = await response.json();
+               isFileUploaded = false;
+               disableQuestionSection();
+               showNotification(result.message, 'success');
+               document.getElementById("outputContainer").style.display = "none";
+               document.getElementById("output").innerHTML = "";
+           } catch (error) {
+               showNotification('Error deleting data.', 'error');
+               console.error(error);
+           }
+       }
+
+       function showNotification(message, type) {
+           const notification = document.createElement('div');
+           notification.className = `notification ${type}`;
+           notification.textContent = message;
+           document.body.appendChild(notification);
+           
+           setTimeout(() => {
+               notification.style.opacity = '0';
+               notification.style.transform = 'translateX(100%)';
+               setTimeout(() => notification.remove(), 300);
+           }, 3000);
+       }
+
+       function toggleSource(element) {
+           const content = element.querySelector('.source-content');
+           const isVisible = content.style.display === 'block';
+           content.style.display = isVisible ? 'none' : 'block';
+       }
+
+       document.getElementById("queryInput").addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
                 askQuestion();
             }
-        });
+            });
 
-        function toggleSource(element) {
-            const content = element.querySelector('.source-content');
-            const isVisible = content.style.display === 'block';
-            content.style.display = isVisible ? 'none' : 'block';
-        }
+        window.addEventListener('load', () => {
+        disableQuestionSection();
+        });
     </script>
 </body>
 </html>
