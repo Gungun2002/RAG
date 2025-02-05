@@ -9,3 +9,7 @@ llama-index-embeddings-huggingface
 langchain-community
 langchain_huggingface
 python-multipart
+pinecone-client 
+openai 
+pinecone
+langchain_pinecone
