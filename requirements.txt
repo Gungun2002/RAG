@@ -8,3 +8,4 @@ langchainhub
 llama-index-embeddings-huggingface
 langchain-community
 langchain_huggingface
+python-multipart
